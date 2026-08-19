@@ -155,6 +155,72 @@ namespace usb_pad
 		}
 	}
 
+	#ifdef __APPLE__
+
+static IOHIDDeviceRef find_physical_buzz()
+{
+	IOHIDManagerRef manager = IOHIDManagerCreate(
+		kCFAllocatorDefault,
+		kIOHIDOptionsTypeNone);
+
+	if (!manager)
+		return nullptr;
+
+	CFMutableDictionaryRef matching =
+		CFDictionaryCreateMutable(
+			kCFAllocatorDefault,
+			2,
+			&kCFTypeDictionaryKeyCallBacks,
+			&kCFTypeDictionaryValueCallBacks);
+
+	int vendor = 0x054C;
+	int product = 0x1000;
+
+	CFNumberRef vendor_number =
+		CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &vendor);
+
+	CFNumberRef product_number =
+		CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &product);
+
+	CFDictionarySetValue(
+		matching,
+		CFSTR(kIOHIDVendorIDKey),
+		vendor_number);
+
+	CFDictionarySetValue(
+		matching,
+		CFSTR(kIOHIDProductIDKey),
+		product_number);
+
+	IOHIDManagerSetDeviceMatching(manager, matching);
+
+	CFSetRef devices = IOHIDManagerCopyDevices(manager);
+
+	IOHIDDeviceRef result = nullptr;
+
+	if (devices && CFSetGetCount(devices) > 0)
+	{
+		const void* values[1];
+
+		CFSetGetValues(devices, values);
+
+		result = (IOHIDDeviceRef)values[0];
+		CFRetain(result);
+	}
+
+	if (devices)
+		CFRelease(devices);
+
+	CFRelease(vendor_number);
+	CFRelease(product_number);
+	CFRelease(matching);
+	CFRelease(manager);
+
+	return result;
+}
+
+#endif
+
 	static void buzz_handle_data(USBDevice* dev, USBPacket* p)
 	{
 		BuzzState* s = USB_CONTAINER_OF(dev, BuzzState, dev);
