@@ -44,10 +44,6 @@ namespace usb_pad
 		USBDescDevice desc_dev{};
 
 		u32 port = 0;
-		#ifdef __APPLE__
-		IOHIDManagerRef hid_manager = nullptr;
-		IOHIDDeviceRef hid_device = nullptr;
-		#endif
 
 		#pragma pack(push, 1)
 		struct
