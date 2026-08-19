@@ -119,11 +119,66 @@ namespace usb_pad
 	};
 
 	BuzzState::BuzzState(u32 port_)
-		: port(port_)
-	{
-	}
+	: port(port_)
+{
+#ifdef __APPLE__
+	hid_device = find_physical_buzz();
 
-	BuzzState::~BuzzState() = default;
+	if (hid_device)
+	{
+		if (IOHIDDeviceOpen(hid_device, kIOHIDOptionsTypeNone) != kIOReturnSuccess)
+		{
+			CFRelease(hid_device);
+			hid_device = nullptr;
+		}
+	}
+#endif
+}
+
+	BuzzState::~BuzzState()
+{
+#ifdef __APPLE__
+	if (hid_device)
+	{
+		buzz_set_leds(hid_device, false, false, false, false);
+		IOHIDDeviceClose(hid_device, kIOHIDOptionsTypeNone);
+		CFRelease(hid_device);
+	}
+#endif
+}
+
+	#ifdef __APPLE__
+
+static void buzz_set_leds(
+	IOHIDDeviceRef device,
+	u8 player1,
+	u8 player2,
+	u8 player3,
+	u8 player4)
+{
+	if (!device)
+		return;
+
+	const u8 report[8] = {
+		0x00,
+		player1 ? 0xFF : 0x00,
+		player2 ? 0xFF : 0x00,
+		player3 ? 0xFF : 0x00,
+		player4 ? 0xFF : 0x00,
+		0x00,
+		0x00,
+		0x00
+	};
+
+	IOHIDDeviceSetReport(
+		device,
+		kIOHIDReportTypeOutput,
+		0,
+		report,
+		sizeof(report));
+}
+
+#endif
 
 	static void buzz_handle_control(USBDevice* dev, USBPacket* p,
 		int request, int value, int index, int length, uint8_t* data)
@@ -251,7 +306,20 @@ static IOHIDDeviceRef find_physical_buzz()
 				}
 				break;
 			case USB_TOKEN_OUT:
-				break;
+{
+#ifdef __APPLE__
+	if (s->hid_device && p->actual_length >= 4)
+	{
+		buzz_set_leds(
+			s->hid_device,
+			p->buffer_ptr[0] != 0,
+			p->buffer_ptr[1] != 0,
+			p->buffer_ptr[2] != 0,
+			p->buffer_ptr[3] != 0);
+	}
+#endif
+	break;
+}
 			default:
 			fail:
 				p->status = USB_RET_STALL;
