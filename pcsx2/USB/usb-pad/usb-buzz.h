@@ -42,6 +42,9 @@ namespace usb_pad
 		USBDevice dev{};
 		USBDesc desc{};
 		USBDescDevice desc_dev{};
+	#ifdef __APPLE__
+		void* hid_device = nullptr;
+	#endif
 
 		u32 port = 0;
 
