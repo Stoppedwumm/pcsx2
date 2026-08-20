@@ -679,11 +679,36 @@ u32 SDLInputSource::GetRGBForPlayerId(SettingsInterface& si, u32 player_id)
 
 void SDLInputSource::UpdateLEDState(u32 controller_index, u32 color)
 {
-    auto it = GetControllerDataForPlayerId(controller_index);
-    if (it != m_controllers.end() && it->gamepad)
-    {
-        SetGamepadRGBLED(it->gamepad, color);
-    }
+	static std::array<u8, 4> s_buzz_leds{};
+	if (controller_index < s_buzz_leds.size())
+		s_buzz_leds[controller_index] = (color != 0) ? 0xFF : 0x00;
+
+	u8 buzz_report[8] = {0x00, 0x00, 0x00, s_buzz_leds[0], s_buzz_leds[1], s_buzz_leds[2], s_buzz_leds[3], 0x00};
+
+	for (const auto& cd : m_controllers)
+	{
+		const char* name = cd.gamepad ? SDL_GetGamepadName(cd.gamepad) : (cd.joystick ? SDL_GetJoystickName(cd.joystick) : nullptr);
+		const u16 vendor = cd.joystick ? SDL_GetJoystickVendor(cd.joystick) : 0;
+		const u16 product = cd.joystick ? SDL_GetJoystickProduct(cd.joystick) : 0;
+
+		const bool is_buzz = (vendor == 0x054c && product == 0x1000) ||
+		                     (vendor == 0x046d && product == 0x0002) ||
+		                     (name && (std::string(name).find("Buzz") != std::string::npos || std::string(name).find("buzz") != std::string::npos));
+
+		if (is_buzz)
+		{
+			if (cd.gamepad)
+				SDL_SendGamepadEffect(cd.gamepad, buzz_report, sizeof(buzz_report)); // needs proper testing
+			else if (cd.joystick)
+				SDL_SendJoystickEffect(cd.joystick, buzz_report, sizeof(buzz_report)); // needs proper testing
+		}
+	}
+
+	auto it = GetControllerDataForPlayerId(controller_index);
+	if (it != m_controllers.end() && it->gamepad)
+	{
+		SetGamepadRGBLED(it->gamepad, color);
+	}
 }
 
 u32 SDLInputSource::ParseRGBForPlayerId(const std::string_view str, u32 player_id)
