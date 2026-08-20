@@ -87,6 +87,7 @@ private:
 	bool HandleJoystickButtonEvent(const SDL_JoyButtonEvent* ev);
 	bool HandleJoystickHatEvent(const SDL_JoyHatEvent* ev);
 	void SendRumbleUpdate(ControllerData* cd);
+	void UpdateLEDState(u32 controller_index, u32 color) override;
 
 	bool IsControllerSixaxis(const ControllerData& cd);
 
