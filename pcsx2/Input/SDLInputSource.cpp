@@ -677,6 +677,15 @@ u32 SDLInputSource::GetRGBForPlayerId(SettingsInterface& si, u32 player_id)
 		player_id);
 }
 
+void SDLInputSource::UpdateLEDState(u32 controller_index, u32 color)
+{
+    auto it = GetControllerDataForPlayerId(controller_index);
+    if (it != m_controllers.end() && it->gamepad)
+    {
+        SetGamepadRGBLED(it->gamepad, color);
+    }
+}
+
 u32 SDLInputSource::ParseRGBForPlayerId(const std::string_view str, u32 player_id)
 {
 	if (player_id >= MAX_LED_COLORS)
