@@ -315,6 +315,7 @@ namespace InputManager
 
 	/// Called when an input device is disconnected.
 	void OnInputDeviceDisconnected(const InputBindingKey key, const std::string_view identifier);
+	void SetUSBLEDColor(u32 port, u32 index, u32 color);
 	void SetUSBLEDColor(u32 port, u32 color);
 } // namespace InputManager
 
