@@ -287,11 +287,9 @@ bool InputManager::ParseBindingAndGetSource(const std::string_view binding, Inpu
 	return false;
 }
 
-void SetUSBLEDColor(u32 port, u32 color)
+void InputManager::SetUSBLEDColor(u32 port, u32 color)
 {
-    // Identify which input source contains the controller mapped to this USB port,
-    // and invoke update:
-    if (auto* source = GetInputSourceInterface(InputSourceType::SDL))
+    if (auto* source = InputManager::GetInputSourceInterface(InputSourceType::SDL))
     {
         source->UpdateLEDState(port, color);
     }
