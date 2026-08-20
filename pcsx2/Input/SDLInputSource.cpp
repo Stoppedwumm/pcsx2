@@ -6,6 +6,8 @@
 #include "Input/InputManager.h"
 #include "Host.h"
 
+#include <SDL3/SDL_hidapi.h>
+
 #include "ImGui/FullscreenUI.h"
 
 #include "common/Assertions.h"
@@ -685,22 +687,25 @@ void SDLInputSource::UpdateLEDState(u32 controller_index, u32 color)
 
 	u8 buzz_report[8] = {0x00, 0x00, 0x00, s_buzz_leds[0], s_buzz_leds[1], s_buzz_leds[2], s_buzz_leds[3], 0x00};
 
-	for (const auto& cd : m_controllers)
+	if (!m_buzz_hid_device)
 	{
-		const char* name = cd.gamepad ? SDL_GetGamepadName(cd.gamepad) : (cd.joystick ? SDL_GetJoystickName(cd.joystick) : nullptr);
-		const u16 vendor = cd.joystick ? SDL_GetJoystickVendor(cd.joystick) : 0;
-		const u16 product = cd.joystick ? SDL_GetJoystickProduct(cd.joystick) : 0;
+		m_buzz_hid_device = SDL_hid_open(0x054c, 0x1000, nullptr);
+		if (!m_buzz_hid_device)
+			m_buzz_hid_device = SDL_hid_open(0x046d, 0x0002, nullptr);
+	}
 
-		const bool is_buzz = (vendor == 0x054c && product == 0x1000) ||
-		                     (vendor == 0x046d && product == 0x0002) ||
-		                     (name && (std::string(name).find("Buzz") != std::string::npos || std::string(name).find("buzz") != std::string::npos));
-
-		if (is_buzz)
+	if (m_buzz_hid_device)
+	{
+		int res = SDL_hid_write(m_buzz_hid_device, buzz_report, sizeof(buzz_report)); // needs proper testing
+		if (res < 0)
 		{
-			if (cd.gamepad)
-				SDL_SendGamepadEffect(cd.gamepad, buzz_report, sizeof(buzz_report)); // needs proper testing
-			else if (cd.joystick)
-				SDL_SendJoystickEffect(cd.joystick, buzz_report, sizeof(buzz_report)); // needs proper testing
+			SDL_hid_close(m_buzz_hid_device);
+			m_buzz_hid_device = SDL_hid_open(0x054c, 0x1000, nullptr);
+			if (!m_buzz_hid_device)
+				m_buzz_hid_device = SDL_hid_open(0x046d, 0x0002, nullptr);
+
+			if (m_buzz_hid_device)
+				SDL_hid_write(m_buzz_hid_device, buzz_report, sizeof(buzz_report)); // needs proper testing
 		}
 	}
 
@@ -789,6 +794,7 @@ bool SDLInputSource::InitializeSubsystem()
 #endif
 
 	// we should open the controllers as the connected events come in, so no need to do any more here
+	SDL_hid_init();
 	m_sdl_subsystem_initialized = true;
 
 	int count;
@@ -808,6 +814,13 @@ void SDLInputSource::ShutdownSubsystem()
 {
 	while (!m_controllers.empty())
 		CloseDevice(m_controllers.begin()->joystick_id);
+
+	if (m_buzz_hid_device)
+	{
+		SDL_hid_close(m_buzz_hid_device);
+		m_buzz_hid_device = nullptr;
+	}
+	SDL_hid_exit();
 
 	if (m_sdl_subsystem_initialized)
 	{
