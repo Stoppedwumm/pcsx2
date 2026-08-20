@@ -13,6 +13,10 @@
 #include "USB/usb-pad/usb-pad.h"
 #include <common/Console.h>
 
+#ifndef SET_REPORT
+#define SET_REPORT 0x2109
+#endif
+
 namespace usb_pad
 {
 	static const USBDescStrings desc_strings = {
@@ -125,6 +129,7 @@ namespace usb_pad
 	static void buzz_handle_control(USBDevice* dev, USBPacket* p,
 		int request, int value, int index, int length, uint8_t* data)
 	{
+		BuzzState* s = USB_CONTAINER_OF(dev, BuzzState, dev);
 		int ret = 0;
 
 		switch (request)
@@ -140,6 +145,24 @@ namespace usb_pad
 				}
 				break;
 			case SET_IDLE:
+				break;
+			case SET_REPORT:
+				if (length >= 7)
+				{
+					// The Buzz Controller output report matches:
+					// data[0] & data[1]: Reserved / Padding
+					// data[2]: Player 1 Handset LED (0xFF for ON, 0x00 for OFF)
+					// data[3]: Player 2 Handset LED
+					// data[4]: Player 3 Handset LED
+					// data[5]: Player 4 Handset LED
+					// data[6]: Reserved / Padding
+					//
+					// Forwarding LED statuses to host backends via InputManager
+					InputManager::SetUSBLEDColor(s->port, 0, data[2]);
+					InputManager::SetUSBLEDColor(s->port, 1, data[3]);
+					InputManager::SetUSBLEDColor(s->port, 2, data[4]);
+					InputManager::SetUSBLEDColor(s->port, 3, data[5]);
+				}
 				break;
 			default:
 				ret = usb_desc_handle_control(dev, p, request, value, index, length, data);
