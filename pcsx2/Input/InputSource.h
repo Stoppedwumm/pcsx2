@@ -74,4 +74,6 @@ public:
 
 	/// Returns true if inversion/negation should be ignored when binding axes.
 	static bool ShouldIgnoreInversion();
+
+	virtual void UpdateLEDState(u32 controller_index, u32 color) {}
 };

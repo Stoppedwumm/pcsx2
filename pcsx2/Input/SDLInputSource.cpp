@@ -6,6 +6,8 @@
 #include "Input/InputManager.h"
 #include "Host.h"
 
+#include <SDL3/SDL_hidapi.h>
+
 #include "ImGui/FullscreenUI.h"
 
 #include "common/Assertions.h"
@@ -677,6 +679,43 @@ u32 SDLInputSource::GetRGBForPlayerId(SettingsInterface& si, u32 player_id)
 		player_id);
 }
 
+void SDLInputSource::UpdateLEDState(u32 controller_index, u32 color)
+{
+	static std::array<u8, 4> s_buzz_leds{};
+	if (controller_index < s_buzz_leds.size())
+		s_buzz_leds[controller_index] = (color != 0) ? 0xFF : 0x00;
+
+	u8 buzz_report[8] = {0x00, 0x00, 0x00, s_buzz_leds[0], s_buzz_leds[1], s_buzz_leds[2], s_buzz_leds[3], 0x00};
+
+	if (!m_buzz_hid_device)
+	{
+		m_buzz_hid_device = SDL_hid_open(0x054c, 0x1000, nullptr);
+		if (!m_buzz_hid_device)
+			m_buzz_hid_device = SDL_hid_open(0x046d, 0x0002, nullptr);
+	}
+
+	if (m_buzz_hid_device)
+	{
+		int res = SDL_hid_write(m_buzz_hid_device, buzz_report, sizeof(buzz_report)); // needs proper testing
+		if (res < 0)
+		{
+			SDL_hid_close(m_buzz_hid_device);
+			m_buzz_hid_device = SDL_hid_open(0x054c, 0x1000, nullptr);
+			if (!m_buzz_hid_device)
+				m_buzz_hid_device = SDL_hid_open(0x046d, 0x0002, nullptr);
+
+			if (m_buzz_hid_device)
+				SDL_hid_write(m_buzz_hid_device, buzz_report, sizeof(buzz_report)); // needs proper testing
+		}
+	}
+
+	auto it = GetControllerDataForPlayerId(controller_index);
+	if (it != m_controllers.end() && it->gamepad)
+	{
+		SetGamepadRGBLED(it->gamepad, color);
+	}
+}
+
 u32 SDLInputSource::ParseRGBForPlayerId(const std::string_view str, u32 player_id)
 {
 	if (player_id >= MAX_LED_COLORS)
@@ -755,6 +794,7 @@ bool SDLInputSource::InitializeSubsystem()
 #endif
 
 	// we should open the controllers as the connected events come in, so no need to do any more here
+	SDL_hid_init();
 	m_sdl_subsystem_initialized = true;
 
 	int count;
@@ -774,6 +814,13 @@ void SDLInputSource::ShutdownSubsystem()
 {
 	while (!m_controllers.empty())
 		CloseDevice(m_controllers.begin()->joystick_id);
+
+	if (m_buzz_hid_device)
+	{
+		SDL_hid_close(m_buzz_hid_device);
+		m_buzz_hid_device = nullptr;
+	}
+	SDL_hid_exit();
 
 	if (m_sdl_subsystem_initialized)
 	{

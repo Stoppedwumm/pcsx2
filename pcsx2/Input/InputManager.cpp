@@ -287,6 +287,23 @@ bool InputManager::ParseBindingAndGetSource(const std::string_view binding, Inpu
 	return false;
 }
 
+void InputManager::SetUSBLEDColor(u32 port, u32 index, u32 color)
+{
+	u32 rgb_color = color;
+	if (color == 0xFF)
+		rgb_color = 0x00FF0000; // Red LED for Buzz handset
+
+	if (auto* source = InputManager::GetInputSourceInterface(InputSourceType::SDL))
+	{
+		source->UpdateLEDState(index, rgb_color); // needs proper testing
+	}
+}
+
+void InputManager::SetUSBLEDColor(u32 port, u32 color)
+{
+	SetUSBLEDColor(port, 0, color);
+}
+
 TinyString InputManager::ConvertKeyboardKeyToString(InputBindingKey key, bool display)
 {
 	TinyString ret;
